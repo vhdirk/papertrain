@@ -1,21 +1,19 @@
 use anyhow::{bail, Result};
-use embedded_svc::wifi::{
-    AuthMethod, ClientConfiguration, Configuration,
-};
+use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 use esp_idf_hal::peripheral;
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
     nvs::EspDefaultNvsPartition,
-    wifi::{EspWifi, BlockingWifi},
+    wifi::{BlockingWifi, EspWifi},
 };
 use log::info;
-
 
 #[derive(Debug, Clone)]
 pub struct WifiConfig {
     pub ssid: &'static str,
     pub password: &'static str,
     pub auth_method: AuthMethod,
+    pub channel: Option<u8>
 }
 
 pub fn wifi(
@@ -39,35 +37,37 @@ pub fn wifi(
 
     wifi.start()?;
 
-    info!("Scanning...");
-
-    let ap_infos = wifi.scan()?;
-
-    let ours = ap_infos.into_iter().find(|a| a.ssid == config.ssid);
-
-    let channel = if let Some(ours) = ours {
-        info!(
-            "Found configured access point {} on channel {}",
-            config.ssid, ours.channel
-        );
-        Some(ours.channel)
+    let channel: Option<u8> = if let Some(channel) = config.channel {
+        Some(channel)
     } else {
-        info!(
-            "Configured access point {} not found during scanning, will go with unknown channel",
-            config.ssid
-        );
-        None
+        info!("Scanning...");
+
+        let ap_infos = wifi.scan()?;
+
+        let ours = ap_infos.into_iter().find(|a| a.ssid == config.ssid);
+
+        if let Some(ours) = ours {
+            info!(
+                "Found configured access point '{}' on channel {}",
+                config.ssid, ours.channel
+            );
+            Some(ours.channel)
+        } else {
+            info!(
+                "Configured access point '{}' not found during scanning, will go with unknown channel",
+                config.ssid
+            );
+            None
+        }
     };
 
-    wifi.set_configuration(&Configuration::Client(
-        ClientConfiguration {
-            ssid: config.ssid.into(),
-            password: config.password.into(),
-            auth_method: AuthMethod::WPA2WPA3Personal,//config.auth,
-            channel,
-            ..Default::default()
-        },
-    ))?;
+    wifi.set_configuration(&Configuration::Client(ClientConfiguration {
+        ssid: config.ssid.into(),
+        password: config.password.into(),
+        auth_method: config.auth_method,
+        channel,
+        ..Default::default()
+    }))?;
 
     info!("Connecting wifi...");
 
@@ -79,7 +79,7 @@ pub fn wifi(
 
     let ip_info = wifi.wifi().sta_netif().get_ip_info()?;
 
-    info!("Wifi DHCP info: {:?}", ip_info);
+    info!("Wifi DHCP info: '{:?}'", ip_info);
 
     Ok(wifi)
 }

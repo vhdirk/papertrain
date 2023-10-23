@@ -1,5 +1,7 @@
 use std::{path::Path, env, fs};
 
+use anyhow::bail;
+
 
 fn default_user_agent(_:env::VarError) -> String {
     let authors = env::var("CARGO_PKG_AUTHORS").unwrap();
@@ -24,6 +26,11 @@ fn connections(param: String) -> Vec<String> {
 
 fn main() -> anyhow::Result<()> {
 
+    let wifi_ssid = env::var("PAPERTRAIN_WIFI_SSID").unwrap_or("".to_owned());
+    if wifi_ssid.is_empty() {
+        bail!("PAPERTRAIN_WIFI_SSID is required");
+    }
+
     let out_dir = env::var("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("user_config.rs");
 
@@ -39,8 +46,13 @@ fn main() -> anyhow::Result<()> {
         _ => "embedded_svc::wifi::AuthMethod::None"
     };
 
-    let connections = env::var("PAPERTRAIN_CONNECTIONS").map_or(vec![], connections);
+    let wifi_password: String = env::var("PAPERTRAIN_WIFI_PASSWORD").unwrap_or("".to_owned());
 
+    if !auth_method.ends_with("None") && wifi_password.is_empty() {
+        bail!("PAPERTRAIN_WIFI_AUTH_METHOD '{}' requires PAPERTRAIN_WIFI_PASSWORD to be set", auth_method);
+    }
+
+    let connections = env::var("PAPERTRAIN_CONNECTIONS").map_or(vec![], connections);
 
     fs::write(
         &dest_path,
@@ -50,6 +62,7 @@ const CONFIG: crate::config::Config<{num_connections}> = crate::config::Config {
         ssid: "{wifi_ssid}",
         password: "{wifi_password}",
         auth_method: {wifi_auth_method},
+        channel: {wifi_channel}
     }},
     irail: crate::irail::IRailConfig {{
         url: "{irail_url}",
@@ -58,9 +71,10 @@ const CONFIG: crate::config::Config<{num_connections}> = crate::config::Config {
     connections: [{connections}]
 }};
         "#,
-        wifi_ssid = env::var("PAPERTRAIN_WIFI_SSID").unwrap(),
-        wifi_password = env::var("PAPERTRAIN_WIFI_PASSWORD").unwrap_or("".to_owned()),
+        wifi_ssid = wifi_ssid,
+        wifi_password = wifi_password,
         wifi_auth_method = auth_method,
+        wifi_channel = env::var("PAPERTRAIN_IRAIL_URL").map_or("None".to_owned(), |c| format!("Some({})", c)),
         irail_url = env::var("PAPERTRAIN_IRAIL_URL").unwrap_or("https://api.irail.be".to_owned()),
         irail_user_agent = env::var("PAPERTRAIN_IRAIL_USER_AGENT").unwrap_or_else(default_user_agent),
         num_connections = connections.len(),
@@ -72,6 +86,7 @@ const CONFIG: crate::config::Config<{num_connections}> = crate::config::Config {
     println!("cargo:rerun-if-env-changed=PAPERTRAIN_WIFI_SSID");
     println!("cargo:rerun-if-env-changed=PAPERTRAIN_WIFI_PASSWORD");
     println!("cargo:rerun-if-env-changed=PAPERTRAIN_WIFI_AUTH_METHOD");
+    println!("cargo:rerun-if-env-changed=PAPERTRAIN_WIFI_CHANNEL");
     println!("cargo:rerun-if-env-changed=PAPERTRAIN_IRAIL_URL");
     println!("cargo:rerun-if-env-changed=PAPERTRAIN_IRAIL_USER_AGENT");
     println!("cargo:rerun-if-env-changed=PAPERTRAIN_CONNECTIONS");

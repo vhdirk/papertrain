@@ -1,5 +1,5 @@
-use crate::wifi::WifiConfig;
 use crate::irail::IRailConfig;
+use crate::wifi::WifiConfig;
 
 #[derive(Debug, Clone)]
 pub struct Connection {
@@ -11,6 +11,5 @@ pub struct Connection {
 pub struct Config<const N: usize> {
     pub wifi: WifiConfig,
     pub irail: IRailConfig,
-    pub connections: [Connection; N]
+    pub connections: [Connection; N],
 }
-
