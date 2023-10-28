@@ -57,8 +57,8 @@ fn main() -> anyhow::Result<()> {
     fs::write(
         &dest_path,
          format!(r#"
-const CONFIG: crate::config::Config<{num_connections}> = crate::config::Config {{
-    wifi: crate::wifi::WifiConfig {{
+const CONFIG: crate::config::AppConfig<{num_connections}> = crate::config::AppConfig {{
+    wifi: crate::config::WifiConfig {{
         ssid: "{wifi_ssid}",
         password: "{wifi_password}",
         auth_method: {wifi_auth_method},
@@ -91,7 +91,7 @@ const CONFIG: crate::config::Config<{num_connections}> = crate::config::Config {
     println!("cargo:rerun-if-env-changed=PAPERTRAIN_IRAIL_USER_AGENT");
     println!("cargo:rerun-if-env-changed=PAPERTRAIN_CONNECTIONS");
 
-    embuild::espidf::sysenv::output();
+    // embuild::espidf::sysenv::output();
 
     Ok(())
 }

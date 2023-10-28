@@ -1,92 +1,92 @@
-use std::fmt::Debug;
+// use std::fmt::Debug;
 
-use esp_idf_svc::http::client::{Configuration, EspHttpConnection};
+// use esp_idf_svc::http::client::{Configuration, EspHttpConnection};
 
-use embedded_svc::http::{client::Client as HttpClient, Method};
-use log::*;
-use querystring;
+// use embedded_svc::http::{client::Client as HttpClient, Method};
+// use log::*;
+// use querystring;
 
-mod responses;
-use responses::Connections;
+// mod responses;
+// use responses::Connections;
 
-#[derive(Debug, Clone)]
+// [derive(Debug, Clone)]
 pub struct IRailConfig {
     pub url: &'static str,
     pub user_agent: &'static str,
 }
 
-pub struct IRailClient {
-    config: IRailConfig,
-    http: HttpClient<EspHttpConnection>,
-}
+// pub struct IRailClient {
+//     config: IRailConfig,
+//     http: HttpClient<EspHttpConnection>,
+// }
 
-fn create_client() -> anyhow::Result<HttpClient<EspHttpConnection>> {
-    let config = Configuration {
-        use_global_ca_store: true,
-        crt_bundle_attach: Some(esp_idf_sys::esp_crt_bundle_attach),
-        ..Default::default()
-    };
+// fn create_client() -> anyhow::Result<HttpClient<EspHttpConnection>> {
+//     let config = Configuration {
+//         use_global_ca_store: true,
+//         crt_bundle_attach: Some(esp_idf_sys::esp_crt_bundle_attach),
+//         ..Default::default()
+//     };
 
-    Ok(HttpClient::wrap(EspHttpConnection::new(&config)?))
-}
+//     Ok(HttpClient::wrap(EspHttpConnection::new(&config)?))
+// }
 
-pub struct EspHttpConnectionBodyReader<'e>(&'e mut EspHttpConnection);
+// pub struct EspHttpConnectionBodyReader<'e>(&'e mut EspHttpConnection);
 
-impl<'e> std::io::Read for EspHttpConnectionBodyReader<'e> {
-    fn read(&mut self, buffer: &mut [u8]) -> Result<usize, std::io::Error> {
-        self.0
-            .read(buffer)
-            .map_err(|err| std::io::Error::other(err))
-    }
-}
+// impl<'e> std::io::Read for EspHttpConnectionBodyReader<'e> {
+//     fn read(&mut self, buffer: &mut [u8]) -> Result<usize, std::io::Error> {
+//         self.0
+//             .read(buffer)
+//             .map_err(|err| std::io::Error::other(err))
+//     }
+// }
 
-impl IRailClient {
-    pub fn new(config: IRailConfig) -> anyhow::Result<Self> {
-        Ok(IRailClient {
-            config,
-            http: create_client()?,
-        })
-    }
+// impl IRailClient {
+//     pub fn new(config: IRailConfig) -> anyhow::Result<Self> {
+//         Ok(IRailClient {
+//             config,
+//             http: create_client()?,
+//         })
+//     }
 
-    fn get<T: serde::de::DeserializeOwned + Debug>(
-        &mut self,
-        path: &str,
-        params: querystring::QueryParams,
-    ) -> anyhow::Result<T> {
-        let headers: [(&str, &str); 3] = [
-            ("user-agent", self.config.user_agent),
-            ("accept", "application/json"),
-            ("connection", "close"),
-        ];
+//     fn get<T: serde::de::DeserializeOwned + Debug>(
+//         &mut self,
+//         path: &str,
+//         params: querystring::QueryParams,
+//     ) -> anyhow::Result<T> {
+//         let headers: [(&str, &str); 3] = [
+//             ("user-agent", self.config.user_agent),
+//             ("accept", "application/json"),
+//             ("connection", "close"),
+//         ];
 
-        let url = format!(
-            "{}{}?{}",
-            self.config.url,
-            path,
-            querystring::stringify(params)
-        );
+//         let url = format!(
+//             "{}{}?{}",
+//             self.config.url,
+//             path,
+//             querystring::stringify(params)
+//         );
 
-        let request = self.http.request(Method::Get, &url, &headers)?;
-        info!("making request {}", url);
-        let mut response = request.submit()?;
+//         let request = self.http.request(Method::Get, &url, &headers)?;
+//         info!("making request {}", url);
+//         let mut response = request.submit()?;
 
-        let (_response_headers, body) = response.split();
+//         let (_response_headers, body) = response.split();
 
-        let response = serde_json::from_reader(EspHttpConnectionBodyReader(body))
-            .map_err(|err| anyhow::Error::new(err));
+//         let response = serde_json::from_reader(EspHttpConnectionBodyReader(body))
+//             .map_err(|err| anyhow::Error::new(err));
 
-        info!("got response {:?}", response);
+//         info!("got response {:?}", response);
 
-        response
-    }
+//         response
+//     }
 
-    pub fn get_connections(&mut self, from: &str, to: &str) -> anyhow::Result<Connections> {
-        let path = "/connections/";
-        let params = vec![("from", from), ("to", to), ("format", "json")];
+//     pub fn get_connections(&mut self, from: &str, to: &str) -> anyhow::Result<Connections> {
+//         let path = "/connections/";
+//         let params = vec![("from", from), ("to", to), ("format", "json")];
 
-        self.get(path, params)
-    }
-}
+//         self.get(path, params)
+//     }
+// }
 
 // pub fn request_image(image_data_url: &str) -> anyhow::Result<Vec<u8>> {
 //     let mut client = create_client()?;
