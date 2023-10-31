@@ -1,19 +1,54 @@
-use anyhow::{bail, Result};
-use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
-// use esp_idf_hal::peripheral;
-// use esp_idf_svc::{
-//     eventloop::EspSystemEventLoop,
-//     nvs::EspDefaultNvsPartition,
-//     wifi::{BlockingWifi, EspWifi},
-// };
 use log::*;
 
-#[derive(Debug, Clone)]
+use esp_backtrace as _;
+use esp_println as _;
+
+use embassy_time::{Duration, Timer};
+
+use embedded_svc::wifi::{Wifi, AuthMethod, ClientConfiguration, Configuration};
+use esp_wifi::wifi::{WifiController, WifiEvent, WifiState};
+
+// #[derive(Debug, Clone)]
 pub struct WifiConfig {
     pub ssid: &'static str,
     pub password: &'static str,
     pub auth_method: AuthMethod,
-    pub channel: Option<u8>
+    pub channel: Option<u8>,
+}
+
+pub async fn connection(controller: &mut WifiController<'static>, config: &'static WifiConfig) {
+    info!("start connection task");
+    // info!("Device capabilities: {:?}", controller.get_capabilities());
+    match esp_wifi::wifi::get_wifi_state() {
+        WifiState::StaConnected => {
+            // wait until we're no longer connected
+            controller.wait_for_event(WifiEvent::StaDisconnected).await;
+            Timer::after(Duration::from_millis(5000)).await
+        }
+        _ => {}
+    }
+    if !matches!(controller.is_started(), Ok(true)) {
+        let client_config = Configuration::Client(ClientConfiguration {
+            ssid: config.ssid.into(),
+            password: config.password.into(),
+            auth_method: config.auth_method,
+            channel: config.channel,
+            ..Default::default()
+        });
+        controller.set_configuration(&client_config).unwrap();
+        info!("Starting wifi");
+        controller.start().await.unwrap();
+        info!("Wifi started!");
+    }
+    info!("About to connect...");
+
+    match controller.connect().await {
+        Ok(_) => info!("Wifi connected!"),
+        Err(e) => {
+            info!("Failed to connect to wifi: {:?}", e);
+            Timer::after(Duration::from_millis(5000)).await
+        }
+    }
 }
 
 // pub fn wifi(

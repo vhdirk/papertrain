@@ -1,17 +1,5 @@
 use crate::irail::IRailConfig;
-use core::option::Option;
-// use crate::wifi::WifiConfig;
-
-use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
-
-
-pub struct WifiConfig {
-    pub ssid: &'static str,
-    pub password: &'static str,
-    pub auth_method: AuthMethod,
-    pub channel: Option<u8>
-}
-
+use crate::wifi::WifiConfig;
 
 // [derive(Debug, Clone)]
 pub struct Connection {

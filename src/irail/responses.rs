@@ -1,34 +1,38 @@
 // use std::{str::FromStr, fmt::Display};
 
-// use serde::{self, Deserialize};
+use serde::{self, Deserialize};
 
-// pub fn deserialize_number_from_string<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-// where
-//     D: serde::Deserializer<'de>,
-//     T: FromStr + serde::Deserialize<'de>,
-//     <T as FromStr>::Err: Display,
-// {
-//     #[derive(serde::Deserialize)]
-//     #[serde(untagged)]
-//     enum StringOrInt<T> {
-//         String(String),
-//         Number(T),
-//     }
+use core::{str::FromStr, fmt::Display};
 
-//     match StringOrInt::<T>::deserialize(deserializer)? {
-//         StringOrInt::String(s) => s.parse::<T>().map_err(serde::de::Error::custom),
-//         StringOrInt::Number(i) => Ok(i),
-//     }
-// }
+use alloc::{string::String, vec::Vec};
 
-// #[derive(Default, Debug, Clone, serde::Deserialize)]
-// #[serde(rename_all = "camelCase")]
-// pub struct Connections {
-//     pub version: String,
-//     #[serde(deserialize_with = "crate::irail::responses::deserialize_number_from_string")]
-//     pub timestamp: u32,
-//     pub connection: Vec<Connection>,
-// }
+pub fn deserialize_number_from_string<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: FromStr + serde::Deserialize<'de>,
+    <T as FromStr>::Err: Display,
+{
+    #[derive(serde::Deserialize)]
+    #[serde(untagged)]
+    enum StringOrInt<T> {
+        String(String),
+        Number(T),
+    }
+
+    match StringOrInt::<T>::deserialize(deserializer)? {
+        StringOrInt::String(s) => s.parse::<T>().map_err(serde::de::Error::custom),
+        StringOrInt::Number(i) => Ok(i),
+    }
+}
+
+#[derive(Default, Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Connections {
+    pub version: String,
+    #[serde(deserialize_with = "crate::irail::responses::deserialize_number_from_string")]
+    pub timestamp: u32,
+    // pub connection: Vec<Connection>,
+}
 
 // #[derive(Default, Debug, Clone, serde::Deserialize)]
 // #[serde(rename_all = "camelCase")]

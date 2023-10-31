@@ -52,12 +52,12 @@ opt-level = 3
 [dependencies]
 # # anyhow = "^1.0.75"
 
-defmt = "^0.3.5"
+log = "^0.4.20"
 
-hal = { package = "esp32s3-hal", version="0.12.0", features = [
+hal = { package = "esp32s3-hal", version="0.13.0", features = [
     "rt",
     "async",
-    "defmt",
+    "log",
     "embassy",
     "embassy-executor-thread",
     "embassy-time-systick",
@@ -65,7 +65,7 @@ hal = { package = "esp32s3-hal", version="0.12.0", features = [
 
 embedded-hal = "0.2.7"
 
-esp-backtrace = { version = "0.8.0", default-features = false, features = [
+esp-backtrace = { version = "0.9.0", default-features = false, features = [
     "esp32s3",
     "panic-handler",
     "exception-handler",
@@ -73,53 +73,53 @@ esp-backtrace = { version = "0.8.0", default-features = false, features = [
 ] }
 esp-println = { git = "https://github.com/esp-rs/esp-println", default-features = false, features = [
     "esp32s3",
-    "defmt",
+    "log",
     "uart",
 ] }
 esp-alloc = "0.3.0"
 
-# # defmt-rtt = "0.4"
+# # log-rtt = "0.4"
 embassy-executor = { version = "0.3.0", features = [
     "nightly",
-    "defmt",
+    "log",
     "executor-thread",
 ] }
-embassy-time = { version = "0.1.5", features = ["nightly", "defmt"] }
-embassy-net = { version = "0.1.0", features = [
-    "defmt",
+embassy-time = { version = "0.1.5", features = ["nightly", "log"] }
+embassy-net = { version = "0.2.1", features = [
+    "log",
     "tcp",
     "udp",
     "dns",
     "dhcpv4",
-    "medium-ethernet",
-    "unstable-traits",
-    "nightly"
+    "proto-ipv4",
+    "proto-ipv6",
+    "nightly",
 ] }
-esp-wifi = { git = "https://github.com/esp-rs/esp-wifi", rev = "d38763f", default-features = false, features = [
+esp-wifi = { git = "https://github.com/vhdirk/esp-wifi", default-features = false, features = [
     "esp32s3",
     "utils",
     "wifi",
     "embedded-svc",
     "embassy-net",
-    "defmt",
+    "log",
     "async"
 ] }
 
-embedded-io  = { package = "embedded-io-async", version = "0.5.0", optional = true }
-# tokio = { version = "1.21.2", features = ["full"] }
-reqwless = { version = "0.6.0", features = ["alloc", "defmt"] }
-# heapless = { version = "0.7.14", default-features = false }
-# # esp-idf-sys = { version = "^0.33" }
-# # esp-idf-hal = { version = "^0.42" }
-# # esp-idf-svc = { version = "0.47.1", default-features = false }
-embedded-svc = { version = "^0.25", default-features = false, features = ["nightly", "defmt" ] }
+embedded-io  = { package = "embedded-io-async", version = "0.6.0" }
+embedded-nal = { package = "embedded-nal-async", version = "0.6.0" }
+reqwless = { version = "0.9.0", features = ["alloc", "log", "embedded-tls"] }
+
+embedded-svc = { version = "^0.26.1", default-features = false, features = ["nightly", "log" ] }
 epd-waveshare = { git = "https://github.com/caemor/epd-waveshare", rev = "cff9130" }
+toml-cfg = "0.1.3"
 
 # # querystring = "1.1.0"
 # # serde_json = "1.0.107"
-# # serde = { version = "1.0.189",  default-features = false, features = ["derive", "alloc"]}
-# serde-json-core = "0.5.1"
-
+serde = { version = "1.0.189",  default-features = false, features = ["derive", "alloc"]}
+serde-json-core = "0.5.1"
+anyhow = {version = "^1.0.75", default-features = false }
+heapless = { version = "0.7.16", default-features = false }
+embassy-futures = { version = "0.1.0", features = ["log"] }
 # [patch.'https://github.com/esp-rs/esp-wifi.git']
 # esp-wifi = { path = "../esp-wifi/esp-wifi" }
 
@@ -127,7 +127,10 @@ epd-waveshare = { git = "https://github.com/caemor/epd-waveshare", rev = "cff913
 # esp32c6-hal = { git = "https://github.com/esp-rs/esp-hal.git", rev = "29f3518" }
 # esp-hal-common = {  git = "https://github.com/esp-rs/esp-hal.git", rev = "29f3518", version = "^0.15.0"}
 
-# [patch.crates-io]
+[patch.crates-io]
+reqwless = {git = "https://github.com/vhdirk/reqwless", branch = "old"}
+buffered-io = { git = "https://github.com/vhdirk/buffered-io.git", branch = "old", version = "0.4.2" }
+
 # esp32c6-hal = { git = "https://github.com/esp-rs/esp-hal.git", rev = "29f3518" }
 # esp-hal-common = {  git = "https://github.com/esp-rs/esp-hal.git", rev = "29f3518" }
 
