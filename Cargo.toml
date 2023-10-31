@@ -120,6 +120,7 @@ serde-json-core = "0.5.1"
 anyhow = {version = "^1.0.75", default-features = false }
 heapless = { version = "0.7.16", default-features = false }
 embassy-futures = { version = "0.1.0", features = ["log"] }
+static_cell = { version = "1.2.0", features = ["nightly"] }
 # [patch.'https://github.com/esp-rs/esp-wifi.git']
 # esp-wifi = { path = "../esp-wifi/esp-wifi" }
 
@@ -129,7 +130,7 @@ embassy-futures = { version = "0.1.0", features = ["log"] }
 
 [patch.crates-io]
 reqwless = {git = "https://github.com/vhdirk/reqwless", branch = "old"}
-buffered-io = { git = "https://github.com/vhdirk/buffered-io.git", branch = "old", version = "0.4.2" }
+buffered-io = { git = "https://github.com/bugadani/buffered-io.git", branch = "old", version = "0.4.2" }
 
 # esp32c6-hal = { git = "https://github.com/esp-rs/esp-hal.git", rev = "29f3518" }
 # esp-hal-common = {  git = "https://github.com/esp-rs/esp-hal.git", rev = "29f3518" }

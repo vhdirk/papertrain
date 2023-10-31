@@ -7,27 +7,30 @@
 extern crate alloc;
 // use {defmt_rtt as _, panic_probe as _}; // global logger
 
-
 use config::AppConfig;
 use wifi::WifiConfig;
 
-use log::*;
+use embassy_executor::Spawner;
 use embassy_futures::select::select;
 use embassy_net::{
     dns::DnsSocket,
     tcp::client::{TcpClient, TcpClientState},
-    Stack,
+    Stack, StackResources, Config,
 };
 use epd_waveshare;
 use esp_backtrace as _;
 use esp_println::{self as _, println};
-use reqwless::{client::{HttpClient, TlsConfig, TlsVerify}, request::Method};
+use log::*;
+use reqwless::{
+    client::{HttpClient, TlsConfig, TlsVerify},
+    request::Method,
+};
 
 use core::mem::MaybeUninit;
 use core::option::Option::*;
 use core::str::from_utf8;
 
-use hal::{Rng, entry};
+use hal::{entry, Rng};
 
 use embassy_executor::_export::StaticCell;
 
@@ -38,9 +41,9 @@ use hal::{
     clock::ClockControl,
     embassy::{self},
     peripherals::Peripherals,
+    prelude::*,
     // spi::Spi,
     systimer::SystemTimer,
-    prelude::*
 };
 
 use epd_waveshare::{
@@ -53,23 +56,13 @@ use esp_wifi::{
     wifi::{WifiController, WifiDevice, WifiMode},
     EspWifiInitFor,
 };
+use static_cell::make_static;
 
 use crate::irail::IRailClient;
 
 mod config;
 mod irail;
 mod wifi;
-
-macro_rules! singleton {
-    ($val:expr) => {{
-        type T = impl Sized;
-        static STATIC_CELL: StaticCell<T> = StaticCell::new();
-        let (x,) = STATIC_CELL.init(($val,));
-        x
-    }};
-}
-
-static EXECUTOR: StaticCell<Executor> = StaticCell::new();
 
 #[global_allocator]
 static ALLOCATOR: esp_alloc::EspHeap = esp_alloc::EspHeap::empty();
@@ -109,59 +102,19 @@ async fn connection(mut controller: WifiController<'static>, config: &'static Wi
 
 #[embassy_executor::task]
 async fn net_task(stack: &'static Stack<WifiDevice<'static>>) {
-
     select(stack.run(), async {
-                // HACK: force polling the interface in case some write operation doesn't wake it up
-                loop {
-                    Timer::after(Duration::from_secs(1)).await;
-                }
-            })
-            .await;
+        // HACK: force polling the interface in case some write operation doesn't wake it up
+        loop {
+            Timer::after(Duration::from_secs(1)).await;
+        }
+    })
+    .await;
     // stack.run().await
 }
 
-#[embassy_executor::task]
-async fn task(stack: &'static Stack<WifiDevice<'static>>) {
-    info!("Setting up wifi");
 
-    loop {
-        // wifi::connection(&mut controller, &CONFIG.wifi).await;
-        if stack.is_link_up() {
-            break;
-        }
-        Timer::after(Duration::from_millis(500)).await;
-    }
-
-    info!("Waiting to get IP address...");
-    loop {
-        if let Some(config) = stack.config_v4() {
-            info!("Got IP: {}", config.address);
-            break;
-        }
-        Timer::after(Duration::from_millis(500)).await;
-    }
-
-    loop {
-        info!("Creating http client");
-
-        let client_state = TcpClientState::<1, 1024, 1024>::new();
-        let tcp_client = TcpClient::new(&stack, &client_state);
-        let dns = DnsSocket::new(&stack);
-
-        let http_client = HttpClient::new(&tcp_client, &dns);
-
-
-        info!("Fetching connections");
-
-        let mut irail_client = IRailClient::new(&CONFIG.irail, http_client);
-        let connections = irail_client.get_connections(&CONFIG.connections[0].from, &CONFIG.connections[0].to).await;
-
-        Timer::after(Duration::from_millis(3000)).await;
-    }
-}
-
-#[entry]
-fn main() -> ! {
+#[main]
+async fn main(spawner: Spawner) -> ! {
     init_heap();
 
     esp_println::logger::init_logger_from_env();
@@ -193,26 +146,62 @@ fn main() -> ! {
 
     embassy::init(&clocks, SystemTimer::new(peripherals.SYSTIMER));
 
-    let net_config = embassy_net::Config::dhcpv4(Default::default());
+    let net_config = Config::dhcpv4(Default::default());
 
     // Init network stack
-    let stack = &*singleton!(embassy_net::Stack::new(
+    let stack = &*make_static!(Stack::new(
         wifi_interface,
         net_config,
-        singleton!(embassy_net::StackResources::<3>::new()),
+        make_static!(StackResources::<3>::new()),
         seed.into()
     ));
 
-    let executor = EXECUTOR.init(Executor::new());
-    executor.run(|spawner| {
-        info!("Spawning Connection");
-        spawner.spawn(connection(controller, &CONFIG.wifi)).ok();
-        info!("Spawning Net Task");
-        spawner.spawn(net_task(&stack)).ok();
-        info!("Spawning Task");
-        spawner.spawn(task(&stack)).ok();
-        info!("Spawning finished");
-    })
+
+    info!("Spawning Connection");
+    spawner.spawn(connection(controller, &CONFIG.wifi)).ok();
+    info!("Spawning Net Task");
+    spawner.spawn(net_task(&stack)).ok();
+    info!("Spawning Task");
+
+        info!("Setting up wifi");
+
+    loop {
+        // wifi::connection(&mut controller, &CONFIG.wifi).await;
+        if stack.is_link_up() {
+            break;
+        }
+        Timer::after(Duration::from_millis(500)).await;
+    }
+
+    info!("Waiting to get IP address...");
+    loop {
+        if let Some(config) = stack.config_v4() {
+            info!("Got IP: {}", config.address);
+            break;
+        }
+        Timer::after(Duration::from_millis(500)).await;
+    }
+
+    loop {
+        info!("Creating http client");
+
+        let client_state = TcpClientState::<1, 1024, 1024>::new();
+        let tcp_client = TcpClient::new(&stack, &client_state);
+        let dns = DnsSocket::new(&stack);
+
+        let http_client = HttpClient::new(&tcp_client, &dns);
+
+        info!("Fetching connections");
+
+        let mut irail_client = IRailClient::new(&CONFIG.irail, http_client);
+        let connections = irail_client
+            .get_connections(&CONFIG.connections[0].from, &CONFIG.connections[0].to)
+            .await;
+
+        Timer::after(Duration::from_millis(3000)).await;
+    }
+}
+
 
     //     //     let (_led_pin, wakeup_pin, modem, spi_driver, epd, delay) = gather_peripherals(peripherals)?;
 
@@ -256,7 +245,7 @@ fn main() -> ! {
     //     //     enter_deep_sleep(wakeup_pin.into(), Duration::from_secs(60 * 2));
 
     //     //     unreachable!("in sleep");
-}
+//}
 
 // fn gather_peripherals(
 //     peripherals: Peripherals,
@@ -387,19 +376,3 @@ pub fn get_buffer_size() -> usize {
 // //     Ok(())
 // // }
 
-// #[entry]
-// fn main() -> ! {
-//     let peripherals = Peripherals::take();
-//     let system = peripherals.SYSTEM.split();
-//     let clocks = ClockControl::max(system.clock_control).freeze();
-//     let mut delay = Delay::new(&clocks);
-
-//     defmt::info!("Hello world pr!");
-//     defmt::warn!("Hello world!");
-//     loop {
-//         defmt::info!("Hello world!");
-
-//         // info!("Loop...");
-//         delay.delay_ms(500u32);
-//     }
-// }
