@@ -15,7 +15,7 @@ use embassy_futures::select::select;
 use embassy_net::{
     dns::DnsSocket,
     tcp::client::{TcpClient, TcpClientState},
-    Stack, StackResources, Config,
+    Config, Stack, StackResources,
 };
 use epd_waveshare;
 use esp_backtrace as _;
@@ -30,7 +30,7 @@ use core::mem::MaybeUninit;
 use core::option::Option::*;
 use core::str::from_utf8;
 
-use hal::{entry, Rng};
+use hal::{entry, timer::TimerGroup, Rng};
 
 use embassy_executor::_export::StaticCell;
 
@@ -112,7 +112,6 @@ async fn net_task(stack: &'static Stack<WifiDevice<'static>>) {
     // stack.run().await
 }
 
-
 #[main]
 async fn main(spawner: Spawner) -> ! {
     init_heap();
@@ -126,7 +125,7 @@ async fn main(spawner: Spawner) -> ! {
     let mut system = peripherals.SYSTEM.split();
     let clocks = ClockControl::max(system.clock_control).freeze();
 
-    let timer = hal::timer::TimerGroup::new(peripherals.TIMG1, &clocks).timer0;
+    let timer = TimerGroup::new(peripherals.TIMG1, &clocks).timer0;
 
     let mut rng = Rng::new(peripherals.RNG);
     let seed = rng.random();
@@ -156,14 +155,13 @@ async fn main(spawner: Spawner) -> ! {
         seed.into()
     ));
 
-
     info!("Spawning Connection");
     spawner.spawn(connection(controller, &CONFIG.wifi)).ok();
     info!("Spawning Net Task");
     spawner.spawn(net_task(&stack)).ok();
     info!("Spawning Task");
 
-        info!("Setting up wifi");
+    info!("Setting up wifi");
 
     loop {
         // wifi::connection(&mut controller, &CONFIG.wifi).await;
@@ -202,49 +200,48 @@ async fn main(spawner: Spawner) -> ! {
     }
 }
 
+//     //     let (_led_pin, wakeup_pin, modem, spi_driver, epd, delay) = gather_peripherals(peripherals)?;
 
-    //     //     let (_led_pin, wakeup_pin, modem, spi_driver, epd, delay) = gather_peripherals(peripherals)?;
+//     //     let sysloop = EspSystemEventLoop::take()?;
+//     //     let nvs = EspDefaultNvsPartition::take()?;
 
-    //     //     let sysloop = EspSystemEventLoop::take()?;
-    //     //     let nvs = EspDefaultNvsPartition::take()?;
+//     //     // see comment on function
+//     //     //disable_onboard_led(led_pin)?;
 
-    //     //     // see comment on function
-    //     //     //disable_onboard_led(led_pin)?;
+//     //     // start wifi
+//     //     // TODO: display error icon on screen and sleep again
+//     //     let wifi = wifi::wifi(&CONFIG.wifi, modem, sysloop, nvs).expect("failed to connect to wifi");
 
-    //     //     // start wifi
-    //     //     // TODO: display error icon on screen and sleep again
-    //     //     let wifi = wifi::wifi(&CONFIG.wifi, modem, sysloop, nvs).expect("failed to connect to wifi");
+//     //     // get image
+//     //     log::info!("request image from server");
+//     //     let mut client = IRailClient::new(CONFIG.irail.clone())?;
 
-    //     //     // get image
-    //     //     log::info!("request image from server");
-    //     //     let mut client = IRailClient::new(CONFIG.irail.clone())?;
+//     //     let connections = CONFIG
+//     //         .connections
+//     //         .map(|conn| client.get_connections(conn.from, conn.to));
 
-    //     //     let connections = CONFIG
-    //     //         .connections
-    //     //         .map(|conn| client.get_connections(conn.from, conn.to));
+//     //     log::info!("Got connection {:?}", connections[0].as_ref().unwrap());
 
-    //     //     log::info!("Got connection {:?}", connections[0].as_ref().unwrap());
+//     //     // TODO: generate image from connections
 
-    //     //     // TODO: generate image from connections
+//     //     // turn off wifi
+//     //     log::info!("turning off wifi");
+//     //     drop(wifi);
 
-    //     //     // turn off wifi
-    //     //     log::info!("turning off wifi");
-    //     //     drop(wifi);
+//     //     // TODO: draw the image
 
-    //     //     // TODO: draw the image
+//     //     // if let Ok(image_data) = image_result {
+//     //     //     log::info!("render image");
+//     //     //     draw_epd(image_data, spi_driver, epd, delay)?;
+//     //     // } else {
+//     //     //     log::error!("getting image data failed: {:?}", image_result.unwrap_err());
+//     //     // }
 
-    //     //     // if let Ok(image_data) = image_result {
-    //     //     //     log::info!("render image");
-    //     //     //     draw_epd(image_data, spi_driver, epd, delay)?;
-    //     //     // } else {
-    //     //     //     log::error!("getting image data failed: {:?}", image_result.unwrap_err());
-    //     //     // }
+//     //     // deep sleep for 2 minutes (or on wakeup button press)
+//     //     // TODO: sleep time should depend on train hours. The closer to departure, the more refreshes
+//     //     enter_deep_sleep(wakeup_pin.into(), Duration::from_secs(60 * 2));
 
-    //     //     // deep sleep for 2 minutes (or on wakeup button press)
-    //     //     // TODO: sleep time should depend on train hours. The closer to departure, the more refreshes
-    //     //     enter_deep_sleep(wakeup_pin.into(), Duration::from_secs(60 * 2));
-
-    //     //     unreachable!("in sleep");
+//     //     unreachable!("in sleep");
 //}
 
 // fn gather_peripherals(
@@ -375,4 +372,3 @@ pub fn get_buffer_size() -> usize {
 
 // //     Ok(())
 // // }
-
