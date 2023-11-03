@@ -1,5 +1,5 @@
 
-use log::*;
+use defmt::*;
 use core::str::from_utf8;
 
 use alloc::{string::String, borrow::ToOwned};
@@ -143,7 +143,7 @@ where
         let mut host_path: String = self.config.url.into();
         host_path.push_str(path);
 
-        info!("Creating resource {}", &host_path);
+        // info!("Creating resource {}", &host_path);
         let resource = self.http.resource("https://api.irail.be/connections/");
         info!("Resource creation done");
 

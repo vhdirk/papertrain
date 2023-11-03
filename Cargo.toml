@@ -19,45 +19,16 @@ lto = "off"
 [profile.dev.package.esp-wifi]
 opt-level = 3
 
-# # [features]
-# # default = ["alloc", "esp-idf-sys/native", "experimental"]
-# # std = ["alloc", "esp-idf-sys/std", "esp-idf-sys/binstart", "embedded-svc/std", "esp-idf-hal/std", "esp-idf-svc/std"]
-# # alloc = ["embedded-svc/alloc", "esp-idf-hal/alloc", "esp-idf-svc/alloc"]
-# # experimental = ["embedded-svc/experimental", "esp-idf-svc/experimental"]
-
-# # [dependencies]
-# # anyhow = "^1.0.75"
-# # log = { version = "^0.4" }
-# # esp-idf-sys = { version = "^0.33" }
-# # esp-idf-hal = { version = "^0.42" }
-# # esp-idf-svc = { version = "^0.47" }
-# # embedded-svc = { version = "^0.26" }
-
-# # epd-waveshare = { git = "https://github.com/caemor/epd-waveshare", rev = "cff9130" }
-
-# # querystring = "1.1.0"
-# # # serde_json = "1.0.107"
-# # serde = { version = "1.0.189",  default-features = false, features = ["derive", "alloc"]}
-# # serde-json-core = "0.5.1"
-
-# [features]
-# default = []
-# # pio = ["esp-idf-svc/pio"]
-# # std = ["alloc", "esp-idf-svc/binstart", "esp-idf-svc/std"]
-# # alloc = ["esp-idf-svc/alloc"]
-# # nightly = ["esp-idf-svc/nightly"]
-# # experimental = ["esp-idf-svc/experimental"]
-# # embassy = ["esp-idf-svc/embassy-sync", "esp-idf-svc/critical-section", "esp-idf-svc/embassy-time-driver"]
 
 [dependencies]
 # # anyhow = "^1.0.75"
 
-log = "^0.4.20"
+defmt = "^0.3.5"
 
-hal = { package = "esp32s3-hal", version="0.13.0", features = [
+esp-hal = { package = "esp32s3-hal", version="0.13.0", features = [
     "rt",
     "async",
-    "log",
+    "defmt",
     "embassy",
     "embassy-executor-thread",
     "embassy-time-systick",
@@ -73,20 +44,20 @@ esp-backtrace = { version = "0.9.0", default-features = false, features = [
 ] }
 esp-println = { git = "https://github.com/esp-rs/esp-println", default-features = false, features = [
     "esp32s3",
-    "log",
+    "defmt",
     "uart",
 ] }
 esp-alloc = "0.3.0"
 
-# # log-rtt = "0.4"
+# # defmt-rtt = "0.4"
 embassy-executor = { version = "0.3.1", features = [
     "nightly",
-    "log",
+    "defmt",
     "executor-thread",
 ] }
-embassy-time = { version = "0.1.5", features = ["nightly", "log"] }
+embassy-time = { version = "0.1.5", features = ["nightly", "defmt"] }
 embassy-net = { version = "0.2.1", features = [
-    "log",
+    "defmt",
     "tcp",
     "udp",
     "dns",
@@ -101,15 +72,15 @@ esp-wifi = { git = "https://github.com/vhdirk/esp-wifi", default-features = fals
     "wifi",
     "embedded-svc",
     "embassy-net",
-    "log",
+    "defmt",
     "async"
 ] }
 
 embedded-io  = { package = "embedded-io-async", version = "0.6.0" }
 embedded-nal = { package = "embedded-nal-async", version = "0.6.0" }
-reqwless = { version = "0.9.0", features = ["alloc", "log", "embedded-tls"] }
+reqwless = { version = "0.9.0", features = ["alloc", "defmt", "embedded-tls"] }
 
-embedded-svc = { version = "^0.26.1", default-features = false, features = ["nightly", "log" ] }
+embedded-svc = { version = "^0.26.1", default-features = false, features = ["nightly", "defmt" ] }
 epd-waveshare = { git = "https://github.com/caemor/epd-waveshare", rev = "cff9130" }
 toml-cfg = "0.1.3"
 
@@ -119,22 +90,12 @@ serde = { version = "1.0.189",  default-features = false, features = ["derive", 
 serde-json-core = "0.5.1"
 anyhow = {version = "^1.0.75", default-features = false }
 heapless = { version = "0.7.16", default-features = false }
-embassy-futures = { version = "0.1.0", features = ["log"] }
-static_cell = { version = "1.2.0", features = ["nightly"] }
-# [patch.'https://github.com/esp-rs/esp-wifi.git']
-# esp-wifi = { path = "../esp-wifi/esp-wifi" }
-
-# [patch.'https://github.com/esp-rs/esp-hal.git']
-# esp32c6-hal = { git = "https://github.com/esp-rs/esp-hal.git", rev = "29f3518" }
-# esp-hal-common = {  git = "https://github.com/esp-rs/esp-hal.git", rev = "29f3518", version = "^0.15.0"}
+embassy-futures = { version = "0.1.0", features = ["defmt"] }
+static_cell = { version = "2.0.0", features = ["nightly"] }
 
 [patch.crates-io]
 reqwless = {git = "https://github.com/vhdirk/reqwless", branch = "old"}
 buffered-io = { git = "https://github.com/bugadani/buffered-io.git", branch = "old", version = "0.4.2" }
 
-# esp32c6-hal = { git = "https://github.com/esp-rs/esp-hal.git", rev = "29f3518" }
-# esp-hal-common = {  git = "https://github.com/esp-rs/esp-hal.git", rev = "29f3518" }
-
 [build-dependencies]
 anyhow = "^1.0.75"
-# embuild = "^0.31.3"

@@ -1,4 +1,4 @@
-use log::*;
+use defmt::*;
 
 use esp_backtrace as _;
 use esp_println as _;

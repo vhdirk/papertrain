@@ -3,22 +3,21 @@ target = "xtensa-esp32s3-none-elf"
 
 [target.xtensa-esp32s3-none-elf]
 # linker = "ldproxy"
-runner = "espflash flash --monitor" # Select this runner for espflash v2.x.x
+runner = "espflash flash --baud=1048576 --monitor" # Select this runner for espflash v2.x.x
 rustflags = [
-    # "--cfg", "espidf_time64", # Extending time_t for ESP IDF 5: https://github.com/esp-rs/rust/issues/110
-    "-C", "link-arg=-Wl,-Tlinkall.x",
     "-C", "link-arg=-nostartfiles",
+    "-C", "link-arg=-Wl,-Tlinkall.x",
     "-C", "link-arg=-Trom_functions.x",
-    "-C", "force-frame-pointers",
-    # "-C", "link-arg=-Tdefmt.x"
+    "-C", "link-arg=-Tdefmt.x",
+    # "-C", "force-frame-pointers",
 ]
 
 [unstable]
 build-std = ["core", "alloc", "panic_abort"]
 
 [env]
-MCU="esp32s3"
-SMOLTCP_DNS_MAX_SERVER_COUNT = "10"
-# Note: this variable is not used by the pio builder (`cargo build --features pio`)
-ESP_IDF_VERSION = "v5.1.1"
+MCU = "esp32s3"
 
+DEFMT_LOG = "INFO"
+ESP_LOGLEVEL = "INFO"
+SMOLTCP_DNS_MAX_SERVER_COUNT = "10"

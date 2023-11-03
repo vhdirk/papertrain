@@ -20,7 +20,7 @@ use embassy_net::{
 use epd_waveshare;
 use esp_backtrace as _;
 use esp_println::{self as _, println};
-use log::*;
+use defmt::*;
 use reqwless::{
     client::{HttpClient, TlsConfig, TlsVerify},
     request::Method,
@@ -30,14 +30,14 @@ use core::mem::MaybeUninit;
 use core::option::Option::*;
 use core::str::from_utf8;
 
-use hal::{entry, timer::TimerGroup, Rng};
 
 use embassy_executor::_export::StaticCell;
 
 use embassy_time::{Duration, Timer};
 
-use hal::embassy::executor::Executor;
-use hal::{
+use esp_hal::embassy::executor::Executor;
+use esp_hal::{entry, timer::TimerGroup, Rng};
+use esp_hal::{
     clock::ClockControl,
     embassy::{self},
     peripherals::Peripherals,
@@ -116,8 +116,8 @@ async fn net_task(stack: &'static Stack<WifiDevice<'static>>) {
 async fn main(spawner: Spawner) -> ! {
     init_heap();
 
-    esp_println::logger::init_logger_from_env();
-    log::info!("Logger is setup");
+    // esp_println::logger::init_logger_from_env();
+    info!("Logger is setup");
     println!("Logger is setup");
 
     let peripherals = Peripherals::take();
@@ -192,6 +192,9 @@ async fn main(spawner: Spawner) -> ! {
         info!("Fetching connections");
 
         let mut irail_client = IRailClient::new(&CONFIG.irail, http_client);
+
+        info!("Fetching connections 2");
+
         let connections = irail_client
             .get_connections(&CONFIG.connections[0].from, &CONFIG.connections[0].to)
             .await;
