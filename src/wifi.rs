@@ -1,3 +1,4 @@
+use anyhow::bail;
 use defmt::*;
 
 use esp_backtrace as _;
@@ -5,8 +6,8 @@ use esp_println as _;
 
 use embassy_time::{Duration, Timer};
 
-use embedded_svc::wifi::{Wifi, AuthMethod, ClientConfiguration, Configuration};
-use esp_wifi::wifi::{WifiController, WifiEvent, WifiState};
+use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration, Wifi};
+use esp_wifi::wifi::{WifiController, WifiEvent, WifiState, WifiError};
 
 // #[derive(Debug, Clone)]
 pub struct WifiConfig {
@@ -16,7 +17,7 @@ pub struct WifiConfig {
     pub channel: Option<u8>,
 }
 
-pub async fn connection(controller: &mut WifiController<'static>, config: &'static WifiConfig) {
+pub async fn connection(controller: &mut WifiController<'static>, config: &'static WifiConfig) -> Result<(), WifiError> {
     info!("start connection task");
     // info!("Device capabilities: {:?}", controller.get_capabilities());
     match esp_wifi::wifi::get_wifi_state() {
@@ -35,7 +36,11 @@ pub async fn connection(controller: &mut WifiController<'static>, config: &'stat
             channel: config.channel,
             ..Default::default()
         });
-        controller.set_configuration(&client_config).unwrap();
+        if let Err(err) = controller.set_configuration(&client_config) {
+            warn!("Error setting wifi config {:?}", err);
+            Timer::after(Duration::from_millis(5000)).await;
+            return Err(err);
+        }
         info!("Starting wifi");
         controller.start().await.unwrap();
         info!("Wifi started!");
@@ -49,6 +54,7 @@ pub async fn connection(controller: &mut WifiController<'static>, config: &'stat
             Timer::after(Duration::from_millis(5000)).await
         }
     }
+    Ok(())
 }
 
 // pub fn wifi(

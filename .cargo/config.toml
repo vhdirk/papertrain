@@ -2,8 +2,7 @@
 target = "xtensa-esp32s3-none-elf"
 
 [target.xtensa-esp32s3-none-elf]
-# linker = "ldproxy"
-runner = "espflash flash --baud=1048576 --monitor" # Select this runner for espflash v2.x.x
+runner = "espflash flash --monitor"
 rustflags = [
     "-C", "link-arg=-nostartfiles",
     "-C", "link-arg=-Wl,-Tlinkall.x",
