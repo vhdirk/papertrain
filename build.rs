@@ -23,25 +23,23 @@ fn default_user_agent(_: env::VarError) -> String {
     )
 }
 
-fn connections(param: String) -> Vec<String> {
+fn map_connection(param: String) -> Vec<String> {
     param
         .trim()
-        .split(';')
-        .map(|s| {
-            let fromto: Vec<&str> = s.trim().split(',').collect();
-            format!(
-                "crate::config::Connection{{from:\"{}\",to:\"{}\"}}",
-                fromto[0].trim(),
-                fromto[1].trim()
-            )
-        })
-        .collect::<Vec<String>>()
+        .split(',')
+        .map(|s| format!("\"{}\"", s))
+        .collect()
 }
 
 fn main() -> anyhow::Result<()> {
     let wifi_ssid = env::var("PAPERTRAIN_WIFI_SSID").unwrap_or("".to_owned());
     if wifi_ssid.is_empty() {
         bail!("PAPERTRAIN_WIFI_SSID is required");
+    }
+
+    let conn = env::var("PAPERTRAIN_CONNECTION").unwrap_or("".to_owned());
+    if conn.is_empty() {
+        bail!("PAPERTRAIN_CONNECTION is required");
     }
 
     let out_dir = env::var("OUT_DIR").unwrap();
@@ -71,7 +69,7 @@ fn main() -> anyhow::Result<()> {
         );
     }
 
-    let connections = env::var("PAPERTRAIN_CONNECTIONS").map_or(vec![], connections);
+    let connection: Vec<String> = env::var("PAPERTRAIN_CONNECTION").map_or(vec![], map_connection);
 
     fs::write(
         dest_path,
@@ -88,7 +86,7 @@ const CONFIG: crate::config::AppConfig<{num_connections}> = crate::config::AppCo
         url: "{irail_url}",
         user_agent: r#"{irail_user_agent}"#,
     }},
-    connections: [{connections}]
+    connection: [{connection}]
 }};
         "###,
             wifi_ssid = wifi_ssid,
@@ -100,8 +98,8 @@ const CONFIG: crate::config::AppConfig<{num_connections}> = crate::config::AppCo
                 env::var("PAPERTRAIN_IRAIL_URL").unwrap_or("https://api.irail.be".to_owned()),
             irail_user_agent =
                 env::var("PAPERTRAIN_IRAIL_USER_AGENT").unwrap_or_else(default_user_agent),
-            num_connections = connections.len(),
-            connections = connections.join(",")
+            num_connections = connection.len(),
+            connection = connection.join(","),
         ),
     )
     .unwrap();

@@ -1,37 +1,39 @@
-use core::{cmp::max, str::from_utf8};
 use defmt::*;
 
-use alloc::{borrow::ToOwned, string::String, vec::Vec};
+use alloc::{string::String, vec::Vec, string::ToString};
 use esp_backtrace as _;
-use esp_println::println;
 
 mod responses;
 pub use responses::*;
 
 use embedded_nal::{Dns, TcpConnect};
-use reqwless::{
-    client::{HttpClient, HttpRequestHandle, HttpResource, HttpResourceRequestBuilder},
-    headers::ContentType,
-    request::{DefaultRequestBuilder, Method, Request, RequestBuilder},
-    response::Response,
-};
+use reqwless::{client::HttpClient, headers::ContentType, request::RequestBuilder};
 
 pub type QueryParam<'a> = (&'a str, &'a str);
 pub type QueryParams<'a> = [QueryParam<'a>];
 
-/// Produces a URL query string from a given query by iterating through the vec.
-///
-/// # Examples
-///
-/// ```
-/// extern crate querystring;
-///
-/// assert_eq!(querystring::stringify(vec![("foo", "bar"), ("baz", "qux")]), "?foo=bar&baz=qux&");
-/// ```
 pub fn stringify(query: &QueryParams) -> String {
     query.iter().fold(String::from("?"), |acc, &tuple| {
         acc + tuple.0 + "=" + tuple.1 + "&"
     })
+}
+
+#[derive(Debug, Format)]
+pub enum IRailError {
+    NetworkError(reqwless::Error),
+    ParseError(#[defmt(Debug2Format)]serde_json::Error),
+}
+
+impl From<reqwless::Error> for IRailError {
+    fn from(value: reqwless::Error) -> Self {
+        IRailError::NetworkError(value)
+    }
+}
+
+impl From<serde_json::Error> for IRailError {
+    fn from(value: serde_json::Error) -> Self {
+        IRailError::ParseError(value)
+    }
 }
 
 pub struct IRailConfig {
@@ -65,7 +67,7 @@ where
         path: &str,
         params: &QueryParams<'q>,
         body: &'b mut [u8],
-    ) -> anyhow::Result<U>
+    ) -> Result<U, IRailError>
     where
         U: serde::de::Deserialize<'b>,
     {
@@ -79,18 +81,8 @@ where
 
         info!("Creating resource {}", host_path.as_str());
 
-        let resource = self.http.resource(&host_path).await;
+        let mut resource = self.http.resource(&host_path).await?;
         info!("Resource creation done");
-
-        if resource.is_err() {
-            let err = resource.err().unwrap();
-            warn!("Resource creation failed {}", err);
-            anyhow::bail!("Resource creation failed")
-        }
-
-        info!("Unwrapping resource");
-
-        let mut resource = resource.unwrap();
 
         let full_path = stringify(&params);
         info!("Building request: {}", full_path.as_str());
@@ -102,18 +94,11 @@ where
 
         info!("Sending request");
 
-        let mut header_buf = [0; 1024];
-        let response = request.send(&mut header_buf).await;
+        let mut header_buf = vec![0; 1024];
+        let response = request.send(&mut header_buf).await?;
 
         info!("Got response");
 
-        if response.is_err() {
-            let err = response.unwrap_err();
-            warn!("Response error {}", err);
-            anyhow::bail!("error")
-        }
-
-        let response = response.unwrap();
         let status = response.status;
         info!("Reponse status {}", status);
 
@@ -125,45 +110,35 @@ where
 
         info!("Reading response");
 
-        let read_result = body_reader.read_to_end(body).await;
-        info!("Done reading {}", read_result.is_ok());
+        let num_bytes = body_reader.read_to_end(body).await?;
 
-        if read_result.is_err() {
-            let err = read_result.unwrap_err();
-            warn!("error {}", err);
-            anyhow::bail!("error")
-        }
-
-        let num_bytes = read_result.unwrap();
         info!("Read {} bytes", num_bytes);
 
-        let result = serde_json::from_slice(&body[..num_bytes]);
-
-        if result.is_err() {
-            let error = result.err().unwrap();
-            let err_str = format!("{:?}", error);
-            warn!("error {:?}", err_str.as_str());
-            anyhow::bail!("result")
-        }
-
-        Ok(result.unwrap())
+        Ok(serde_json::from_slice::<U>(&body[..num_bytes])?)
     }
 
-    pub async fn get_connections(&mut self, from: &str, to: &str) -> anyhow::Result<Connections> {
+    pub async fn get_connections(
+        &mut self,
+        from: &str,
+        to: &str,
+        results: Option<u8>
+    ) -> Result<Connections, IRailError> {
+        let num_results = results.unwrap_or(1);
         let path = "/connections";
         let params = [
             ("from", from),
             ("to", to),
             ("format", "json"),
-            ("results", "1"),
+            ("results", &num_results.to_string()),
         ];
-        let mut buffer: Vec<u8> = vec![0; 30 * 1024];
+        let mut buffer: Vec<u8> = vec![0; 50 * 1024];
 
-        let result = self.get(path, &params, buffer.as_mut_slice()).await;
+        let mut result: Connections = self.get(path, &params, &mut buffer).await?;
+
         drop(buffer);
-        if result.is_err() {
-            anyhow::bail!("result")
-        }
-        Ok(result.unwrap())
+        // save space by removing stuff we certainly won't need
+        result.connections.truncate(num_results as usize);
+
+        Ok(result)
     }
 }

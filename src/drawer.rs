@@ -11,7 +11,6 @@ use embedded_graphics::{
         ascii::{FONT_8X13, FONT_9X15, FONT_9X18_BOLD},
         MonoTextStyle,
     },
-    pixelcolor::Rgb888,
     primitives::{Circle, Line, Primitive, PrimitiveStyle, Rectangle},
     text::{renderer::CharacterStyle, Alignment, Text, TextStyle},
     Drawable,
@@ -33,7 +32,6 @@ where
 }
 
 pub fn format_duration(duration: Duration) -> String {
-    let seconds = duration.num_seconds() % 60;
     let minutes = (duration.num_seconds() / 60) % 60;
     let hours = (duration.num_seconds() / 60) / 60;
     if hours > 0 {
@@ -57,7 +55,7 @@ where
         let duration_width = 50;
 
         let cell_size = Size::new(
-            ((size.width - duration_width) / (schedule.stations.len() as u32)),
+            (size.width - duration_width) / (schedule.stations.len() as u32),
             150,
         );
         let margin = padding;
@@ -75,7 +73,7 @@ where
         }
     }
 
-    pub fn display_header(&mut self) -> Result<(), Display::Error> {
+    pub fn draw_header(&mut self) -> Result<(), Display::Error> {
         let ts_with_tz = self.schedule.timestamp.with_timezone(TIMEZONE);
 
         let date = ts_with_tz.format("%d/%m/%Y").to_string();
@@ -99,8 +97,6 @@ where
         )
         .draw(self.display)?;
 
-        // TODO: system error icons
-
         // Draw separator line
         let separator_style = PrimitiveStyle::with_stroke(TriColor::Black, 1);
         Line::new(
@@ -116,7 +112,7 @@ where
         Ok(())
     }
 
-    pub fn display_station_names(&mut self) -> Result<(), Display::Error> {
+    pub fn draw_station_names(&mut self) -> Result<(), Display::Error> {
         let station_name_style = MonoTextStyle::new(&FONT_9X15, TriColor::Black);
 
         let last_station_index = self.schedule.stations.len() - 1;
@@ -149,7 +145,7 @@ where
         Ok(())
     }
 
-    fn display_stop(
+    fn draw_stop(
         &mut self,
         stop: &Option<TrainStopInfo>,
         offset: Point,
@@ -191,7 +187,7 @@ where
         Ok(())
     }
 
-    fn display_connection(
+    fn draw_connection(
         &mut self,
         connection: &TrainConnection,
         offset: Point,
@@ -227,8 +223,8 @@ where
         let stop_spacing = (self.size.width - self.duration_width - self.padding.width * 4)
             / (connection.stops.len() as u32 - 1);
 
-        for (index, stop) in connection.stops.iter().enumerate() {
-            self.display_stop(&stop, offset, Alignment::Center)?;
+        for stop in connection.stops.iter() {
+            self.draw_stop(&stop, offset, Alignment::Center)?;
 
             // Draw stop dot
             if let Some(info) = &stop {
@@ -257,17 +253,28 @@ where
         Ok(())
     }
 
-    pub fn display_connections(&mut self, vertical_offset: i32) -> Result<(), Display::Error> {
+    pub fn draw_connections(&mut self) -> Result<(), Display::Error> {
         if self.schedule.connections.len() == 0 {
             return Ok(());
         }
 
         let mut offset = Point::new(self.padding.width as i32, 100);
 
-        for (index, connection) in self.schedule.connections.iter().enumerate() {
-            self.display_connection(connection, offset)?;
+        for connection in self.schedule.connections.iter() {
+            self.draw_connection(connection, offset)?;
             offset = Point::new(offset.x, offset.y + 100);
         }
+
+        Ok(())
+    }
+
+
+    pub fn draw(&mut self) -> Result<(), Display::Error> {
+        self.draw_header()?;
+
+        self.draw_station_names()?;
+
+        self.draw_connections()?;
 
         Ok(())
     }

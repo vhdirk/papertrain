@@ -1,4 +1,3 @@
-use anyhow::bail;
 use defmt::*;
 
 use esp_backtrace as _;
