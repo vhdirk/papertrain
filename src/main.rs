@@ -7,25 +7,28 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 
-use wifi::WifiConfig;
+use core::option::Option::*;
+use core::{cmp::max, mem::MaybeUninit};
 
 use defmt::*;
+
+use embedded_hal_bus::spi::ExclusiveDevice;
+
 use embassy_executor::Spawner;
 use embassy_net::{
     dns::DnsSocket,
     tcp::client::{TcpClient, TcpClientState},
     Config, Stack, StackResources,
 };
+use embassy_time::{Duration, Timer};
 
-use epd_waveshare;
-use esp_println::{self as _, println};
 use reqwless::client::{HttpClient, TlsConfig, TlsVerify};
 
-use core::option::Option::*;
-use core::{cmp::max, mem::MaybeUninit};
+use embedded_graphics::prelude::*;
+use static_cell::make_static;
 
-use embassy_time::{Duration, Timer};
-use embedded_hal_bus::spi::ExclusiveDevice;
+use esp_println as _;
+use esp_backtrace as _;
 
 use esp_hal::{
     clock::ClockControl,
@@ -45,21 +48,16 @@ use esp_hal::{
     FlashSafeDma, Rng,
 };
 
-use embedded_graphics::prelude::*;
-
-use epd_waveshare::{
-    epd7in5b_v3::{Display7in5, Epd7in5, HEIGHT, WIDTH},
-    prelude::*,
-};
-
 use esp_wifi::{
     initialize,
     wifi::{WifiController, WifiDevice, WifiStaDevice},
     EspWifiInitFor,
 };
-use static_cell::make_static;
 
-use crate::{drawer::TrainScheduleDrawer, irail::IRailClient, trains::TrainSchedule};
+use epd_waveshare::{
+    epd7in5b_v3::{Display7in5, Epd7in5, HEIGHT, WIDTH},
+    prelude::*,
+};
 
 mod config;
 mod drawer;
@@ -68,6 +66,9 @@ mod merge_relative_order;
 mod stack_protection;
 mod trains;
 mod wifi;
+
+use crate::{drawer::TrainScheduleDrawer, irail::IRailClient, trains::TrainSchedule};
+use crate::wifi::WifiConfig;
 
 #[global_allocator]
 static ALLOCATOR: esp_alloc::EspHeap = esp_alloc::EspHeap::empty();
@@ -80,6 +81,21 @@ fn init_heap() {
         ALLOCATOR.init(HEAP.as_mut_ptr() as *mut u8, HEAP_SIZE);
     }
 }
+
+fn init_stack_protection() {
+    extern "C" {
+        static mut _stack_start_cpu0: u8;
+        static mut _stack_end_cpu0: u8;
+    }
+
+    // We only use a single core for now, so we can write both stack regions.
+    let stack_start = unsafe { core::ptr::addr_of!(_stack_start_cpu0) as usize };
+    let stack_end = unsafe { core::ptr::addr_of!(_stack_end_cpu0) as usize };
+    let _stack_protection = make_static!(crate::stack_protection::StackMonitor::protect(
+        stack_start..stack_end
+    ));
+}
+
 const NUM_SPIDMA_DESCRIPTORS: usize =
     (((epd_waveshare::buffer_len(WIDTH as usize, HEIGHT as usize) + 4091) / 4092) + 1) * 3;
 
@@ -102,19 +118,8 @@ async fn net_task(stack: &'static Stack<WifiDevice<'static, WifiStaDevice>>) {
 }
 
 fn init() {
+    init_stack_protection();
     init_heap();
-
-    extern "C" {
-        static mut _stack_start_cpu0: u8;
-        static mut _stack_end_cpu0: u8;
-    }
-
-    // We only use a single core for now, so we can write both stack regions.
-    let stack_start = unsafe { core::ptr::addr_of!(_stack_start_cpu0) as usize };
-    let stack_end = unsafe { core::ptr::addr_of!(_stack_end_cpu0) as usize };
-    let _stack_protection = make_static!(crate::stack_protection::StackMonitor::protect(
-        stack_start..stack_end
-    ));
 }
 
 #[main]
@@ -193,11 +198,14 @@ async fn main(spawner: Spawner) -> ! {
     let mut spi_device =
         ExclusiveDevice::new(FlashSafeDma::<_, 4>::new(spi), cs, embassy_time::Delay {});
 
+    info!("Initializing Epd");
     let mut epd_driver = Epd7in5::new(&mut spi_device, busy, dc, rst, None)
         .await
         .unwrap();
 
-    let _ = epd_driver.clear_frame(&mut spi_device).await;
+    info!("Clearing Epd");
+    let _ = epd_driver.clear_frame(&mut spi_device).await.unwrap();
+    let _ = epd_driver.wait_until_idle(&mut spi_device).await.unwrap();
 
     info!("Initializing network stack");
     let net_config = Config::dhcpv4(Default::default());
@@ -257,9 +265,12 @@ async fn main(spawner: Spawner) -> ! {
     let padding = Size::new(20, 15);
     let size = Size::new(WIDTH, HEIGHT);
     let offset = Point::new(0, 0);
+    let retry_time = Duration::from_secs(2);
     let mut next_update_in = Duration::from_secs(90);
 
     loop {
+        // TODO: Enable 'updating' led
+
         info!("Fetching connections");
 
         let schedule = match irail_client
@@ -275,7 +286,8 @@ async fn main(spawner: Spawner) -> ! {
                 TrainSchedule::from_connections(connections, &CONFIG.connection.to_vec(), limit)
             }
             Err(err) => {
-                warn!("connections error, {:?}", err);
+                warn!("connections error, {:?}. Trying again in {:?} seconds", err, retry_time.as_secs());
+                Timer::after(retry_time).await;
                 continue;
             }
         };
@@ -285,24 +297,32 @@ async fn main(spawner: Spawner) -> ! {
 
         let mut display = Box::new(Display7in5::default());
 
-        println!("Making framebuffer");
+        let _ = display.clear(TriColor::White).unwrap();
+
+        info!("Filling framebuffer");
         let _ = TrainScheduleDrawer::new(display.as_mut(), &schedule, offset, size, padding)
             .draw()
             .unwrap();
 
-        println!("Draw!");
+        info!("Draw");
         // Transfer the frame data to the epd and display it
         let _ = epd_driver
             .update_and_display_frame(&mut spi_device, &display.buffer())
             .await
             .unwrap();
 
-        println!("Putting display to sleep!");
+        let _ = epd_driver.wait_until_idle(&mut spi_device).await.unwrap();
+
+        info!("Putting display to sleep");
         let _ = epd_driver.sleep(&mut spi_device).await.unwrap();
+
+        info!("Calculating next update");
 
         if let Some(conn) = schedule.connections.first() {
             if let Some(Some(stop)) = conn.stops.first() {
-                let time_until = stop.time - schedule.timestamp;
+                let time_until = ((stop.time + stop.delay) - schedule.timestamp)
+                    .clamp(chrono::Duration::seconds(2), chrono::Duration::hours(8));
+
                 next_update_in = Duration::from_secs(max(
                     time_until.num_seconds() as u64 / 2,
                     next_update_in.as_secs(),
@@ -310,6 +330,8 @@ async fn main(spawner: Spawner) -> ! {
             }
         }
 
+        // TODO: Disable 'updating' led
+        info!("Next update in: {} seconds", next_update_in.as_secs());
         Timer::after(next_update_in).await;
     }
 }
