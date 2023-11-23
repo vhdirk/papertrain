@@ -49,7 +49,7 @@ pub async fn connection(controller: &mut WifiController<'static>, config: &'stat
     match controller.connect().await {
         Ok(_) => info!("Wifi connected!"),
         Err(e) => {
-            info!("Failed to connect to wifi: {:?}", e);
+            info!("Failed to connect to wifi '{}': {:?}", config.ssid, e);
             Timer::after(Duration::from_millis(5000)).await
         }
     }
