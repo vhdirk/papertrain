@@ -31,7 +31,7 @@ embedded-svc = { version = "^0.28.0", default-features = false, features = [
 ] }
 embedded-graphics = { version = "0.8.1" }
 
-esp-alloc = "0.3.0"
+esp-alloc = "0.4.0"
 esp-backtrace = { version = "0.9.0", default-features = false, features = [
     "esp32s3",
     "panic-handler",
