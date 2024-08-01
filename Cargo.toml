@@ -22,7 +22,7 @@ opt-level = 3
 [dependencies]
 defmt = { version = "^0.3.5", features = ["alloc"] }
 
-embedded-hal-bus = { version = "0.1.0-rc.1", features = ["async"] }
+embedded-hal-bus = { version = "0.2.0", features = ["async"] }
 embedded-io = { package = "embedded-io-async", version = "0.6.0" }
 embedded-nal = { package = "embedded-nal-async", version = "0.6.0" }
 embedded-svc = { version = "^0.26.1", default-features = false, features = [
