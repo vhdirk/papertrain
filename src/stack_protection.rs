@@ -1,21 +1,15 @@
 use core::ops::Range;
-use defmt::*;
 
-use esp_hal::{
-    assist_debug::DebugAssist,
-    get_core, interrupt,
-    peripherals::{self, ASSIST_DEBUG},
-    prelude::*,
-    Cpu,
-};
+use defmt::info;
+use esp_hal::{assist_debug::DebugAssist, get_core, peripherals::ASSIST_DEBUG, prelude::*, Cpu};
 
 pub struct StackMonitor {
     assist: DebugAssist<'static>,
 }
 
 fn conjure() -> DebugAssist<'static> {
-    let peripheral = unsafe { ASSIST_DEBUG::steal() };
-    DebugAssist::new(peripheral)
+    let debug_peripheral = unsafe { ASSIST_DEBUG::steal() };
+    DebugAssist::new(debug_peripheral, Some(assist_debug_handler))
 }
 
 impl StackMonitor {
@@ -32,20 +26,20 @@ impl StackMonitor {
             stack.start as *const u32,
             stack.end - stack.start
         );
-        let mut assist = conjure();
+        let mut da = conjure();
 
         const CANARY_UNITS: u32 = 1;
         const CANARY_GRANULARITY: u32 = 16;
 
         // We watch writes to the last word in the stack.
         match get_core() {
-            Cpu::ProCpu => assist.enable_region0_monitor(
+            Cpu::ProCpu => da.enable_region0_monitor(
                 stack.start as u32 + CANARY_GRANULARITY,
                 stack.start as u32 + CANARY_GRANULARITY + CANARY_UNITS * CANARY_GRANULARITY,
                 true,
                 true,
             ),
-            Cpu::AppCpu => assist.enable_core1_region0_monitor(
+            Cpu::AppCpu => da.enable_core1_region0_monitor(
                 stack.start as u32 + CANARY_GRANULARITY,
                 stack.start as u32 + CANARY_GRANULARITY + CANARY_UNITS * CANARY_GRANULARITY,
                 true,
@@ -53,12 +47,7 @@ impl StackMonitor {
             ),
         }
 
-        unwrap!(interrupt::enable(
-            peripherals::Interrupt::ASSIST_DEBUG,
-            interrupt::Priority::Priority3,
-        ));
-
-        Self { assist }
+        Self { assist: da }
     }
 }
 
@@ -71,8 +60,8 @@ impl Drop for StackMonitor {
     }
 }
 
-#[interrupt]
-fn ASSIST_DEBUG() {
+#[handler(priority = esp_hal::interrupt::Priority::Priority3)]
+fn assist_debug_handler() {
     let mut da = conjure();
     let cpu = get_core();
 

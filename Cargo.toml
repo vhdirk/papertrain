@@ -1,6 +1,6 @@
 [package]
 name = "papertrain"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Dirk Van Haerenborgh <vhdirk@gmail.com>"]
 homepage = "https://github.com/vhdirk/papertrain"
 edition = "2021"
@@ -20,7 +20,7 @@ lto = "off"
 opt-level = 3
 
 [dependencies]
-defmt = { version = "^0.3.5", features = ["alloc"] }
+defmt = { version = "^0.3.8", features = ["alloc"] }
 
 embedded-hal-bus = { version = "0.2.0", features = ["async"] }
 embedded-io = { package = "embedded-io-async", version = "0.6.0" }
@@ -36,23 +36,25 @@ esp-backtrace = { version = "0.14.0", default-features = false, features = [
     "esp32s3",
     "panic-handler",
     "exception-handler",
-    "print-uart",
+    "defmt"
 ] }
-esp-hal = { package = "esp32s3-hal", version = "0.15.0", features = [
-    "rt",
+esp-hal = { version = "0.19.0", features = [
+    "esp32s3",
     "async",
     "defmt",
-    "eh1",
-    "embassy",
-    "embassy-executor-thread",
-    "embassy-time-systick",
 ] }
-esp-println = { git = "https://github.com/esp-rs/esp-println", default-features = false, features = [
+
+esp-hal-embassy =  { version = "0.2.0", features = ["esp32s3", "defmt", "executors", "integrated-timers"] }
+
+
+
+
+esp-println = { version="0.10.0", default-features = false, features = [
     "esp32s3",
     "defmt-espflash",
     "uart",
 ] }
-esp-wifi = { git = "https://github.com/esp-rs/esp-wifi", default-features = false, features = [
+esp-wifi = { version = "0.7.1", default-features = false, features = [
     "esp32s3",
     "wifi",
     "embedded-svc",
@@ -64,6 +66,8 @@ esp-wifi = { git = "https://github.com/esp-rs/esp-wifi", default-features = fals
     "dhcpv4",
     "dns",
 ] }
+
+embassy-embedded-hal = { version =  "0.2.0", features = ["defmt"]}
 
 embassy-executor = { version = "0.6.0", features = [
     "nightly",
@@ -79,12 +83,9 @@ embassy-net = { version = "0.4.0", features = [
     "dhcpv4",
     "proto-ipv4",
     "proto-ipv6",
-    "nightly",
 ] }
 embassy-time = { version = "0.3.0", features = [
-    "nightly",
     "defmt",
-    "unstable-traits",
 ] }
 
 chrono = { version = "0.4.31", default-features = false, features = [
@@ -96,7 +97,7 @@ chrono-tz = { version = "0.10.0", default-features = false, features = [
 ] }
 static_cell = { version = "2.0.0", features = ["nightly"] }
 heapless = { version = "0.8.0", default-features = false, features = ["serde"] }
-reqwless = { version = "0.12.0", features = ["alloc", "defmt", "embedded-tls"] }
+reqwless = { version = "0.12.1", features = ["alloc", "defmt", "embedded-tls"] }
 serde = { version = "1.0.189", default-features = false, features = [
     "derive",
     "alloc",
@@ -110,10 +111,11 @@ serde_with = { version = "3.4.0", default-features = false, features = [
 ] }
 toml-cfg = "0.2.0"
 epd-waveshare = { package = "epd-waveshare-async", git = "https://github.com/vhdirk/epd-waveshare-async", branch = "main" }
+profont = "0.7.0"
+critical-section = "1.1.2"
 
-[patch.crates-io]
-buffered-io = { git = "https://github.com/bugadani/buffered-io.git", branch = "old", version = "0.4.2" }
-esp-hal = { package = "esp32s3-hal", path = "../esp-hal/esp32s3-hal" }
+# [patch.crates-io]
+# esp-hal = { package = "esp32s3-hal", path = "../esp-hal/esp32s3-hal" }
 
 [build-dependencies]
 anyhow = "^1.0.75"

@@ -1,16 +1,28 @@
 #![no_std]
 #![no_main]
-#![feature(type_alias_impl_trait, async_fn_in_trait, error_in_core)]
+#![feature(type_alias_impl_trait, error_in_core)]
 
 #[macro_use]
 extern crate alloc;
 
 use alloc::boxed::Box;
+use defmt::{info, warn};
+use embedded_graphics::mono_font::{MonoTextStyle, MonoTextStyleBuilder};
+use embedded_graphics::text::{Alignment, TextStyle, Text};
+use embedded_graphics::text::renderer::CharacterStyle;
+use esp_hal::dma::{Dma, DmaDescriptor};
+use esp_hal::dma_descriptors;
+use esp_hal::gpio::{Input, Io, Level, Output, Pull};
+use esp_hal::rng::Rng;
+use esp_hal::system::SystemControl;
+use esp_hal::timer::systimer::SystemTimer;
+use esp_hal::timer::timg::TimerGroup;
+use esp_hal::timer::{ErasedTimer, OneShotTimer, PeriodicTimer};
+use profont::{PROFONT_18_POINT, PROFONT_24_POINT};
+use stack_protection::StackMonitor;
 
 use core::option::Option::*;
 use core::{cmp::max, mem::MaybeUninit};
-
-use defmt::*;
 
 use embedded_hal_bus::spi::ExclusiveDevice;
 
@@ -33,19 +45,14 @@ use esp_backtrace as _;
 use esp_hal::{
     clock::ClockControl,
     dma::DmaPriority,
-    embassy::{self},
     entry,
-    gdma::Gdma,
-    gpio::IO,
     peripherals::Peripherals,
     prelude::*,
     spi::{
         master::{prelude::*, Spi},
         SpiMode,
     },
-    systimer::SystemTimer,
-    timer::TimerGroup,
-    FlashSafeDma, Rng,
+    FlashSafeDma,
 };
 
 use esp_wifi::{
@@ -91,7 +98,7 @@ fn init_stack_protection() {
     // We only use a single core for now, so we can write both stack regions.
     let stack_start = unsafe { core::ptr::addr_of!(_stack_start_cpu0) as usize };
     let stack_end = unsafe { core::ptr::addr_of!(_stack_end_cpu0) as usize };
-    let _stack_protection = make_static!(crate::stack_protection::StackMonitor::protect(
+    let _stack_protection = make_static!(StackMonitor::protect(
         stack_start..stack_end
     ));
 }
@@ -123,15 +130,20 @@ fn init() {
 }
 
 #[main]
-async fn main(spawner: Spawner) -> ! {
+async fn main(spawner: Spawner) {
     init();
 
     let peripherals = Peripherals::take();
 
-    let system = peripherals.SYSTEM.split();
+    let system = SystemControl::new(peripherals.SYSTEM);
 
     let clocks = ClockControl::max(system.clock_control).freeze();
-    let timer = TimerGroup::new(peripherals.TIMG1, &clocks).timer0;
+
+    let timer = PeriodicTimer::new(
+        TimerGroup::new(peripherals.TIMG0, &clocks, None)
+            .timer0
+            .into(),
+    );
 
     let mut rng = Rng::new(peripherals.RNG);
 
@@ -144,7 +156,7 @@ async fn main(spawner: Spawner) -> ! {
         EspWifiInitFor::Wifi,
         timer,
         rng,
-        system.radio_clock_control,
+        peripherals.RADIO_CLK,
         &clocks,
     )
     .unwrap();
@@ -155,21 +167,26 @@ async fn main(spawner: Spawner) -> ! {
 
     info!("Initializing embassy");
 
-    embassy::init(&clocks, SystemTimer::new(peripherals.SYSTIMER));
+    let timg1 = TimerGroup::new(peripherals.TIMG1, &clocks, None);
+    let timer0: ErasedTimer = timg1.timer0.into();
+    let timers = [OneShotTimer::new(timer0)];
+    let timers = make_static!([OneShotTimer<ErasedTimer>; 1], timers);
+    esp_hal_embassy::init(&clocks, timers);
+
 
     info!("Initializing dma interrupts");
 
-    let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
+    let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
     // let ledpin = gpio.gpio2;
     // let wakeup_pin = gpio.gpio4;
 
-    let sclk = io.pins.gpio12.into_push_pull_output();
-    let mosi = io.pins.gpio11.into_push_pull_output();
-    let cs = io.pins.gpio10.into_push_pull_output();
+    let sclk = io.pins.gpio12;
+    let mosi = io.pins.gpio11;
+    let cs = Output::new(io.pins.gpio10, Level::Low);
 
-    let busy = io.pins.gpio18.into_pull_up_input();
-    let rst = io.pins.gpio16.into_push_pull_output();
-    let dc = io.pins.gpio17.into_push_pull_output();
+    let busy = Input::new(io.pins.gpio18, Pull::Up);
+    let rst = Output::new(io.pins.gpio16, Level::Low);
+    let dc = Output::new(io.pins.gpio17, Level::Low);
 
     esp_hal::interrupt::enable(
         esp_hal::peripherals::Interrupt::DMA_IN_CH0,
@@ -183,18 +200,20 @@ async fn main(spawner: Spawner) -> ! {
     .unwrap();
 
     info!("Initializing spi with dma");
-    let mut tx_descriptors = [0u32; NUM_SPIDMA_DESCRIPTORS];
-    let mut rx_descriptors = [0u32; NUM_SPIDMA_DESCRIPTORS];
-    let dma = Gdma::new(peripherals.DMA);
+
+    let (tx_descriptors, rx_descriptors) = dma_descriptors!(NUM_SPIDMA_DESCRIPTORS);
+
+    let dma = Dma::new(peripherals.DMA);
+    let dma_channel = dma.channel0;
     let spi = Spi::new(peripherals.SPI2, 2u32.MHz(), SpiMode::Mode0, &clocks)
         .with_sck(sclk)
         .with_mosi(mosi)
-        .with_dma(dma.channel0.configure(
-            false,
-            &mut tx_descriptors,
-            &mut rx_descriptors,
-            DmaPriority::Priority0,
-        ));
+        .with_dma(
+            dma_channel.configure_for_async(false, DmaPriority::Priority0),
+            tx_descriptors,
+            rx_descriptors,
+        );
+
     let mut spi_device =
         ExclusiveDevice::new(FlashSafeDma::<_, 4>::new(spi), cs, embassy_time::Delay {});
 
@@ -204,8 +223,36 @@ async fn main(spawner: Spawner) -> ! {
         .unwrap();
 
     info!("Clearing Epd");
-    let _ = epd_driver.clear_frame(&mut spi_device).await.unwrap();
-    let _ = epd_driver.wait_until_idle(&mut spi_device).await.unwrap();
+    {
+        let mut display = Box::new(Display7in5::default());
+        let _ = display.clear(TriColor::White).unwrap();
+
+        Text::with_text_style(
+            &"Connecting to wifi",
+            Point::new(WIDTH as i32/2, 200),
+            MonoTextStyle::new(&PROFONT_24_POINT, TriColor::Black),
+            TextStyle::with_alignment(Alignment::Center),
+        )
+        .draw( display.as_mut()).unwrap();
+
+        Text::with_text_style(
+            &CONFIG.wifi.ssid,
+            Point::new(WIDTH as i32/2, 300),
+            MonoTextStyle::new(&PROFONT_24_POINT, TriColor::Chromatic),
+            TextStyle::with_alignment(Alignment::Center),
+        )
+        .draw( display.as_mut()).unwrap();
+
+        let _ = epd_driver
+            .update_and_display_frame(&mut spi_device, &display.buffer())
+            .await
+            .unwrap();
+
+        let _ = epd_driver.wait_until_idle(&mut spi_device).await.unwrap();
+
+        info!("Putting display to sleep");
+        let _ = epd_driver.sleep(&mut spi_device).await.unwrap();
+    }
 
     info!("Initializing network stack");
     let net_config = Config::dhcpv4(Default::default());

@@ -2,6 +2,7 @@ use crate::{
     trains::{TrainConnection, TrainSchedule, TrainStopInfo},
     TriColor, TIMEZONE,
 };
+use core::fmt::Debug;
 use alloc::string::{String, ToString};
 use chrono::Duration;
 use embedded_graphics::{
@@ -16,9 +17,13 @@ use embedded_graphics::{
     Drawable,
 };
 
+use profont::{PROFONT_10_POINT, PROFONT_12_POINT, PROFONT_18_POINT};
+
+
 pub struct TrainScheduleDrawer<'d, 's, Display>
 where
     Display: DrawTarget<Color = TriColor>,
+    Display::Error: Debug
 {
     pub display: &'d mut Display,
     pub schedule: &'s TrainSchedule,
@@ -44,6 +49,7 @@ pub fn format_duration(duration: Duration) -> String {
 impl<'d, 't, Display> TrainScheduleDrawer<'d, 't, Display>
 where
     Display: DrawTarget<Color = TriColor>,
+    Display::Error: Debug
 {
     pub fn new(
         display: &'d mut Display,
@@ -151,7 +157,11 @@ where
         offset: Point,
         alignment: Alignment,
     ) -> Result<(), Display::Error> {
-        let time_style = MonoTextStyle::new(&FONT_9X18_BOLD, TriColor::Black);
+
+        // let font = FontRenderer::new::<fonts::u8g2_font_12x6LED_mn>();
+
+
+        let time_style = MonoTextStyle::new(&PROFONT_18_POINT, TriColor::Black);
 
         let time_txt = stop.as_ref().map_or("-".to_string(), |info| {
             info.time
@@ -159,6 +169,15 @@ where
                 .format("%H:%M")
                 .to_string()
         });
+
+        // font.render_aligned(
+        //     time_txt.as_str(),
+        //     Point::new(offset.x, offset.y),
+        //     VerticalPosition::Baseline,
+        //     convert_alignment(alignment),
+        //     FontColor::Transparent(TriColor::Black),
+        //     self.display,
+        // ).unwrap();
 
         Text::with_text_style(
             &time_txt,
@@ -258,7 +277,7 @@ where
             return Ok(());
         }
 
-        let mut offset = Point::new(self.padding.width as i32, 100);
+        let mut offset = Point::new(self.padding.width as i32, 120);
 
         for connection in self.schedule.connections.iter() {
             self.draw_connection(connection, offset)?;
