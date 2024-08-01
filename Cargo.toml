@@ -96,7 +96,7 @@ chrono-tz = { version = "0.9.0", default-features = false, features = [
 ] }
 static_cell = { version = "2.0.0", features = ["nightly"] }
 heapless = { version = "0.8.0", default-features = false, features = ["serde"] }
-reqwless = { version = "0.9.1", features = ["alloc", "defmt", "embedded-tls"] }
+reqwless = { version = "0.12.0", features = ["alloc", "defmt", "embedded-tls"] }
 serde = { version = "1.0.189", default-features = false, features = [
     "derive",
     "alloc",
