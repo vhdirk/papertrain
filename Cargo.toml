@@ -38,7 +38,7 @@ esp-backtrace = { version = "0.9.0", default-features = false, features = [
     "exception-handler",
     "print-uart",
 ] }
-esp-hal = { package = "esp32s3-hal", version = "0.13.0", features = [
+esp-hal = { package = "esp32s3-hal", version = "0.15.0", features = [
     "rt",
     "async",
     "defmt",
