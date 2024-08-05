@@ -65,7 +65,7 @@ esp-wifi = { git = "https://github.com/esp-rs/esp-wifi", default-features = fals
     "dns",
 ] }
 
-embassy-executor = { version = "0.5.0", features = [
+embassy-executor = { version = "0.6.0", features = [
     "nightly",
     "defmt",
     "executor-thread",
