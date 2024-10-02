@@ -24,7 +24,7 @@ defmt = { version = "^0.3.5", features = ["alloc"] }
 
 embedded-hal-bus = { version = "0.2.0", features = ["async"] }
 embedded-io = { package = "embedded-io-async", version = "0.6.0" }
-embedded-nal = { package = "embedded-nal-async", version = "0.7.0" }
+embedded-nal = { package = "embedded-nal-async", version = "0.8.0" }
 embedded-svc = { version = "^0.28.0", default-features = false, features = [
     "nightly",
     "defmt",
