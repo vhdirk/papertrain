@@ -1,12 +1,12 @@
 use defmt::*;
 
 use alloc::{string::String, vec::Vec, string::ToString};
+use embedded_nal_async::{Dns, SocketAddr, TcpConnect};
 use esp_backtrace as _;
 
 mod responses;
 pub use responses::*;
 
-use embedded_nal::{Dns, TcpConnect};
 use reqwless::{client::HttpClient, headers::ContentType, request::RequestBuilder};
 
 pub type QueryParam<'a> = (&'a str, &'a str);

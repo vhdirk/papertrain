@@ -4,9 +4,7 @@ use esp_backtrace as _;
 use esp_println as _;
 
 use embassy_time::{Duration, Timer};
-
-use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration, Wifi};
-use esp_wifi::wifi::{WifiController, WifiEvent, WifiState, WifiError};
+use esp_wifi::wifi::{ClientConfiguration, AuthMethod, Configuration, WifiController, WifiError, WifiEvent, WifiState};
 
 // #[derive(Debug, Clone)]
 pub struct WifiConfig {
@@ -29,8 +27,8 @@ pub async fn connection(controller: &mut WifiController<'static>, config: &'stat
     }
     if !matches!(controller.is_started(), Ok(true)) {
         let client_config = Configuration::Client(ClientConfiguration {
-            ssid: config.ssid.into(),
-            password: config.password.into(),
+            ssid: heaples::String::<32>::new(config.ssid),
+            password: heaples::String::<64>::new(config.password),
             auth_method: config.auth_method,
             channel: config.channel,
             ..Default::default()

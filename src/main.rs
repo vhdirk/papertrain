@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
-#![feature(type_alias_impl_trait, error_in_core)]
-
+#![feature(type_alias_impl_trait, impl_trait_in_assoc_type)]
 #[macro_use]
 extern crate alloc;
 
@@ -49,10 +48,9 @@ use esp_hal::{
     peripherals::Peripherals,
     prelude::*,
     spi::{
-        master::{prelude::*, Spi},
+        master::{Spi},
         SpiMode,
     },
-    FlashSafeDma,
 };
 
 use esp_wifi::{
@@ -140,7 +138,7 @@ async fn main(spawner: Spawner) {
     let clocks = ClockControl::max(system.clock_control).freeze();
 
     let timer = PeriodicTimer::new(
-        TimerGroup::new(peripherals.TIMG0, &clocks, None)
+        TimerGroup::new(peripherals.TIMG0, &clocks)
             .timer0
             .into(),
     );
@@ -167,7 +165,7 @@ async fn main(spawner: Spawner) {
 
     info!("Initializing embassy");
 
-    let timg1 = TimerGroup::new(peripherals.TIMG1, &clocks, None);
+    let timg1 = TimerGroup::new(peripherals.TIMG1, &clocks);
     let timer0: ErasedTimer = timg1.timer0.into();
     let timers = [OneShotTimer::new(timer0)];
     let timers = make_static!([OneShotTimer<ErasedTimer>; 1], timers);
@@ -210,8 +208,6 @@ async fn main(spawner: Spawner) {
         .with_mosi(mosi)
         .with_dma(
             dma_channel.configure_for_async(false, DmaPriority::Priority0),
-            tx_descriptors,
-            rx_descriptors,
         );
 
     let mut spi_device =
