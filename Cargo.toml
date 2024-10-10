@@ -55,7 +55,7 @@ esp-println = { version = "0.11.0", default-features = false, features = [
     "uart",
 ] }
 
-esp-wifi = { version = "0.9.1", default-features = false, features = [
+esp-wifi = { version = "0.10.0", default-features = false, features = [
     "esp32s3",
     "wifi",
     "embedded-svc",
