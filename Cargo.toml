@@ -49,7 +49,7 @@ esp-hal-embassy = { version = "0.3.0", features = [
     "integrated-timers",
 ] }
 
-esp-println = { version = "0.11.0", default-features = false, features = [
+esp-println = { version = "0.12.0", default-features = false, features = [
     "esp32s3",
     "defmt-espflash",
     "uart",
