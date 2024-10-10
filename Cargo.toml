@@ -38,7 +38,7 @@ esp-backtrace = { version = "0.14.1", default-features = false, features = [
     "exception-handler",
     "defmt",
 ] }
-esp-hal = { version = "0.20.1", features = ["esp32s3", "async", "defmt"] }
+esp-hal = { version = "0.21.0", features = ["esp32s3", "async", "defmt"] }
 
 esp-storage = { version = "0.3.0", features = ["default", "esp32s3"] }
 
