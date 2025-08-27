@@ -85,7 +85,7 @@ embassy-net = { version = "0.4.0", features = [
     "proto-ipv4",
     "proto-ipv6",
 ] }
-embassy-time = { version = "0.3.2", features = ["defmt"] }
+embassy-time = { version = "0.5.0", features = ["defmt"] }
 
 chrono = { version = "0.4.31", default-features = false, features = [
     "alloc",
