@@ -70,7 +70,7 @@ esp-wifi = { version = "0.9.1", default-features = false, features = [
 
 embassy-embedded-hal = { version = "0.2.0", features = ["defmt"] }
 
-embassy-executor = { version = "0.6.0", features = [
+embassy-executor = { version = "0.10.0", features = [
     "nightly",
     "defmt",
     "executor-thread",
