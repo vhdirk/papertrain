@@ -40,7 +40,7 @@ esp-backtrace = { version = "0.14.1", default-features = false, features = [
 ] }
 esp-hal = { version = "0.20.1", features = ["esp32s3", "async", "defmt"] }
 
-esp-storage = { version = "0.3.0", features = ["default", "esp32s3"] }
+esp-storage = { version = "0.10.0", features = ["default", "esp32s3"] }
 
 esp-hal-embassy = { version = "0.3.0", features = [
     "esp32s3",
